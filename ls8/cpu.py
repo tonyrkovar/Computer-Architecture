@@ -22,8 +22,10 @@ class CPU:
                             LDI: self.op_ldi,
                             MUL: self.op_mul,
                             PSH: self.op_push,
-                            POP: self.op_pop}
+                            POP: self.op_pop
+                            }
         self.running = True
+        self.sp = -1
 
     def load(self, file):
         """Load a program into memory."""
@@ -35,10 +37,7 @@ class CPU:
                 if line == '':
                     continue
                 else:
-                    print(line)
                     instruction = int(line, 2)
-                    # print(instruction, "Without leading 0s")
-                    # print(f'{instruction:08d}, with leading 0s')
                     self.ram[address] = instruction
                     address += 1
 
@@ -81,38 +80,45 @@ class CPU:
         self.ram[address] = value
 
     def op_prn(self, operand_a, operand_b):
-        value = self.ram_read(self.pc + 1)
-        print(value)
+        value = self.reg[operand_a]
+        print(value, "From op prn")
         self.pc += 2
-        print("End print")
         return value
 
     def op_mul(self, operand_a, operand_b):
-        value = operand_a * operand_b
-        self.pc += 2
-        print("End mul", value)
+        value = self.reg[operand_a] * self.reg[operand_b]
+        self.pc += 3
+        print(value)
         return value
 
     def op_ldi(self, operand_a, operand_b):
-        print('op_ldi')
-        self.ram_write(operand_a, operand_b)
+        self.reg[operand_a] = operand_b
         self.pc += 3
-        print("End LDI")
 
     def op_hlt(self, operand_a, operand_b):
         print('Stopping')
         self.running = False
 
+    def op_push(self, operand_a, operand_b):
+        self.sp -= 1
+        self.ram[self.sp] = self.reg[operand_a]
+        self.pc += 2
+
+    def op_pop(self, operand_a, operand_b):
+        value = self.ram[self.sp]
+        self.sp += 1
+        self.reg[operand_a] = value
+        self.pc += 2
+
     def run(self):
         """Run the CPU."""
-
         while self.running:
             IR = self.ram_read(self.pc)
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
             if int(bin(IR), 2) in self.branchtable:
-                print(IR)
                 self.branchtable[IR](operand_a, operand_b)
             else:
                 print("Not valid")
+                # print(self.ram)
                 self.running = False
