@@ -5,9 +5,17 @@ import sys
 HLT = 0b00000001
 PRN = 0b01000111
 LDI = 0b10000010
-MUL = 0b10100010
 PSH = 0b01000101
 POP = 0b01000110
+CMP = 0b10100111
+MUL = 0b10100010
+DIV = 0b10100011
+ADD = 0b10100000
+SUB = 0b10100001
+MOD = 0b10100100
+JMP = 0b01010100
+JNE = 0b01010110
+JEQ = 0b01010101
 
 
 class CPU:
@@ -20,11 +28,18 @@ class CPU:
         self.branchtable = {HLT: self.op_hlt,
                             PRN: self.op_prn,
                             LDI: self.op_ldi,
-                            MUL: self.op_mul,
                             PSH: self.op_push,
-                            POP: self.op_pop
+                            POP: self.op_pop,
+                            JMP: self.op_jmp,
+                            JEQ: self.op_jeq,
+                            JNE: self.op_jne,
                             }
+        self.alutable = {
+            MUL: self.alu,
+            CMP: self.alu,
+        }
         self.running = True
+        self.fl = [0] * 8
         self.sp = -1
 
     def load(self, file):
@@ -48,11 +63,29 @@ class CPU:
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
-        if op == "ADD":
+        if op == ADD:
             self.reg[reg_a] += self.reg[reg_b]
-        # elif op == "SUB": etc
+        elif op == SUB:
+            self.reg[reg_a] -= self.reg[reg_b]
+        elif op == MUL:
+            self.reg[reg_a] *= self.reg[reg_b]
+        elif op == DIV:
+            self.reg[reg_a] /= self.reg[reg_b]
+        elif op == MOD:
+            self.reg[reg_a] %= self.reg[reg_b]
+        elif op == CMP:
+            if self.reg[reg_a] == self.reg[reg_b]:
+                print('equal')
+                self.fl[-1] = 1
+            elif self.reg[reg_a] < self.reg[reg_b]:
+                print('a < b')
+                self.fl[-3] = 1
+            elif self.reg[reg_a] > self.reg[reg_b]:
+                print('a > b')
+                self.fl[-2] = 1
         else:
             raise Exception("Unsupported ALU operation")
+        self.pc += 3
 
     def trace(self):
         """
@@ -110,15 +143,32 @@ class CPU:
         self.reg[operand_a] = value
         self.pc += 2
 
+    def op_jmp(self, operand_a, operand_b):
+        self.pc = operand_a
+
+    def op_jeq(self, operand_a, operand_b):
+        if self.fl[-1] == 1:
+            self.pc = self.reg[operand_a]
+        else:
+            self.pc += 2
+
+    def op_jne(self, operand_a, operand_b):
+        if self.fl[-1] == 1:
+            self.pc += 2
+        else:
+            self.pc = self.reg[operand_a]
+
     def run(self):
         """Run the CPU."""
         while self.running:
             IR = self.ram_read(self.pc)
+            base_IR = IR >> 6
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
             if int(bin(IR), 2) in self.branchtable:
                 self.branchtable[IR](operand_a, operand_b)
+            elif int(bin(IR), 2) in self.alutable:
+                self.alutable[IR](IR, operand_a, operand_b)
             else:
-                print("Not valid")
-                # print(self.ram)
+                print("Not valid", IR)
                 self.running = False
